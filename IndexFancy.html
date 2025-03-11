@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model with AI Integration</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <script>
+        // Scene Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xd3d3d3);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lights
+        const light = new THREE.AmbientLight(0xffffff, 2);
+        scene.add(light);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Load Model
+        let model;
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            "body3.glb",
+            function (gltf) {
+                model = gltf.scene;
+                scene.add(model);
+                console.log("Model Loaded!");
+
+                // Compute Bounding Box and Centering
+                const bbox = new THREE.Box3().setFromObject(model);
+                const boundingBoxCenter = bbox.getCenter(new THREE.Vector3());
+
+                console.log("Bounding Box Center:", boundingBoxCenter);
+
+                // Move model to center
+                model.position.sub(boundingBoxCenter);
+
+                // Adjust Camera Position
+                const boundingSphere = bbox.getBoundingSphere(new THREE.Sphere());
+                camera.position.set(0, boundingSphere.radius, boundingSphere.radius * 2);
+                camera.lookAt(scene.position);
+
+                // Add spheres at new body part coordinates
+                addSphereAtCoordinate(new THREE.Vector3(-0.11885413275057277, 0.7191599328923588, 0.1168726512726449), "Right Pectoralis Major");
+                addSphereAtCoordinate(new THREE.Vector3(0.13223819580324456, 0.6952598151497793, 0.12642951151218274), "Left Pectoralis Major");
+                addSphereAtCoordinate(new THREE.Vector3(-0.12063852388693609, 0.8363273829904059, 0.031639463605915685), "Right Platysma");
+                addSphereAtCoordinate(new THREE.Vector3(0.11992859181019515, 0.824787040726437, 0.04801230360049902), "Left Platysma");
+                addSphereAtCoordinate(new THREE.Vector3(0.11055523456191708, 0.3824381589324066, 0.1428665262385975), "Left External Oblique");
+                addSphereAtCoordinate(new THREE.Vector3(-0.11942505566350611, 0.3424205576796109, 0.13457163347255152), "Right External Oblique");
+                addSphereAtCoordinate(new THREE.Vector3(-0.10324052009466354, 0.8148000518195722, -0.18976350216514462), "Right Trapezius");
+                addSphereAtCoordinate(new THREE.Vector3(0.11912593674592566, 0.8061687639930586, -0.19225957624264667), "Left Trapezius");
+                addSphereAtCoordinate(new THREE.Vector3(-0.04731056683047664, 0.5202284114132016, -0.14506120238757958), "Right Latissimus Dorsi");
+                addSphereAtCoordinate(new THREE.Vector3(0.0833861661185239, 0.48639841143443063, -0.13823143285687847), "Left Latissimus Dorsi");
+                addSphereAtCoordinate(new THREE.Vector3(0.08889210349689566, 0.01623567785731872, -0.16300214495774673), "Left Gluteus Maximus");
+                addSphereAtCoordinate(new THREE.Vector3(-0.13089451473063174, 0.005975067109216248, -0.1420871534054211), "Right Gluteus Maximus");
+                addSphereAtCoordinate(new THREE.Vector3(0.22755724926208204, -0.04145667405978526, 0.0005891299129416397), "Left Iliotibial Tract");
+                addSphereAtCoordinate(new THREE.Vector3(-0.22156314520333578, -0.01478276497108455, 0.04162245332509468), "Right Iliotibial Tract");
+                addSphereAtCoordinate(new THREE.Vector3(0.31381746459393695, 0.8543397125341636, -0.06428715236870103), "Left Deltoid");
+                addSphereAtCoordinate(new THREE.Vector3(-0.3215742358203386, 0.8531543700966906, -0.07003797345831321), "Right Deltoid");
+            },
+            function (xhr) {
+                console.log((xhr.loaded / xhr.total * 100) + "% loaded");
+            },
+            function (error) {
+                console.error("Error loading model:", error);
+            }
+        );
+
+        // Orbit Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Raycasting for Click Detection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Dictionary for Marked Points (updated coordinates)
+        const bodyParts = {
+            "Right Pectoralis Major": new THREE.Vector3(-0.11885413275057277, 0.7191599328923588, 0.1168726512726449),
+            "Left Pectoralis Major": new THREE.Vector3(0.13223819580324456, 0.6952598151497793, 0.12642951151218274),
+            "Right Platysma": new THREE.Vector3(-0.12063852388693609, 0.8363273829904059, 0.031639463605915685),
+            "Left Platysma": new THREE.Vector3(0.11992859181019515, 0.824787040726437, 0.04801230360049902),
+            "Left External Oblique": new THREE.Vector3(0.11055523456191708, 0.3824381589324066, 0.1428665262385975),
+            "Right External Oblique": new THREE.Vector3(-0.11942505566350611, 0.3424205576796109, 0.13457163347255152),
+            "Right Trapezius": new THREE.Vector3(-0.10324052009466354, 0.8148000518195722, -0.18976350216514462),
+            "Left Trapezius": new THREE.Vector3(0.11912593674592566, 0.8061687639930586, -0.19225957624264667),
+            "Right Latissimus Dorsi": new THREE.Vector3(-0.04731056683047664, 0.5202284114132016, -0.14506120238757958),
+            "Left Latissimus Dorsi": new THREE.Vector3(0.0833861661185239, 0.48639841143443063, -0.13823143285687847),
+            "Left Gluteus Maximus": new THREE.Vector3(0.08889210349689566, 0.01623567785731872, -0.16300214495774673),
+            "Right Gluteus Maximus": new THREE.Vector3(-0.13089451473063174, 0.005975067109216248, -0.1420871534054211),
+            "Left Iliotibial Tract": new THREE.Vector3(0.22755724926208204, -0.04145667405978526, 0.0005891299129416397),
+            "Right Iliotibial Tract": new THREE.Vector3(-0.22156314520333578, -0.01478276497108455, 0.04162245332509468),
+            "Left Deltoid": new THREE.Vector3(0.31381746459393695, 0.8543397125341636, -0.06428715236870103),
+            "Right Deltoid": new THREE.Vector3(-0.3215742358203386, 0.8531543700966906, -0.07003797345831321),
+        };
+
+        // Add spheres at predefined points
+        function addSphereAtCoordinate(position, partName) {
+            const geometry = new THREE.SphereGeometry(0.05, 16, 16); // Small sphere
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x0000ff,  // Blue (if you want to keep the outline or color for reference)
+                transparent: false,  // Allow transparency
+                opacity: 0,  // Fully transparent
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(position);
+            sphere.name = partName;
+            scene.add(sphere);
+        }
+
+        // Mouse Click Event Listener
+        window.addEventListener("click", function(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const clickedPoint = intersects[0].point;
+                console.log("Clicked at:", clickedPoint);
+
+                let closestPart = null;
+                let minDistance = 0.05; // Threshold distance
+
+                for (let part in bodyParts) {
+                    const distance = clickedPoint.distanceTo(bodyParts[part]);
+                    if (distance < minDistance) {
+                        closestPart = part;
+                        minDistance = distance;
+                    }
+                }
+
+                if (closestPart) {
+                    console.log(`Clicked on: ${closestPart}`);
+                    sendToBackend(closestPart);
+                }
+            }
+        });
+
+        // Send Data to AI Backend
+        function sendToBackend(bodyPart) {
+            fetch('http://localhost:5000/ask-ai-chat', {  // Replace with your actual API endpoint
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userMessage: `Pretend you are a personal trainer specializing in performance and mobility, tell me the name of the body part in laymans terms and give me stretches to practice in close to 100 words ${bodyPart}` }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('AI Response:', data.response);
+                alert(data.response); // Display response
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

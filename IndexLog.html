@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Click to Log 3D Coordinates</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <script>
+        // Scene Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xd3d3d3);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lights
+        const light = new THREE.AmbientLight(0xffffff, 2);
+        scene.add(light);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Load Model
+        let model;
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            "body.glb",
+            function (gltf) {
+                model = gltf.scene;
+                scene.add(model);
+                console.log("Model Loaded!");
+
+                // Compute Bounding Box and Centering
+                const bbox = new THREE.Box3().setFromObject(model);
+                const boundingBoxCenter = bbox.getCenter(new THREE.Vector3());
+
+                console.log("Bounding Box Center:", boundingBoxCenter);
+
+                // Move model to center
+                model.position.sub(boundingBoxCenter);
+
+                // Adjust Camera Position
+                const boundingSphere = bbox.getBoundingSphere(new THREE.Sphere());
+                camera.position.set(0, boundingSphere.radius, boundingSphere.radius * 2);
+                camera.lookAt(scene.position);
+            },
+            function (xhr) {
+                console.log((xhr.loaded / xhr.total * 100) + "% loaded");
+            },
+            function (error) {
+                console.error("Error loading model:", error);
+            }
+        );
+
+        // Orbit Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Raycasting for Click Detection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener("click", function(event) {
+            // Convert mouse position to normalized device coordinates (-1 to +1)
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update raycaster
+            raycaster.setFromCamera(mouse, camera);
+
+            if (model) {
+                const intersects = raycaster.intersectObject(model, true);
+
+                if (intersects.length > 0) {
+                    const clickedPoint = intersects[0].point;
+                    console.log("Clicked Point 3D Coordinates:", clickedPoint);
+                    
+                    // Add a sphere at the clicked position
+                    addSphereAtCoordinate(clickedPoint);
+                }
+            }
+        });
+
+        // Function to add a sphere where the user clicks
+        function addSphereAtCoordinate(position) {
+            const geometry = new THREE.SphereGeometry(0.02, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0x0000ff }); // Blue color
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(position);
+            scene.add(sphere);
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
